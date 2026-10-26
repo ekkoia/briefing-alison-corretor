@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Briefing — Secretária Comercial com IA</title>
+<style>
+  :root{
+    --bg:#f6f4ef;
+    --surface:#ffffff;
+    --ink:#20231f;
+    --ink-soft:#5c6158;
+    --line:#d9d5c7;
+    --accent:#2f5d4f;
+    --accent-soft:#e4ece7;
+    --accent-ink:#ffffff;
+    --warn:#a8572c;
+    --radius:10px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#15170f;
+      --surface:#1d2017;
+      --ink:#ece9df;
+      --ink-soft:#a6a897;
+      --line:#34382a;
+      --accent:#7fb39a;
+      --accent-soft:#273127;
+      --accent-ink:#0e130f;
+      --warn:#e0935f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#15170f; --surface:#1d2017; --ink:#ece9df; --ink-soft:#a6a897;
+    --line:#34382a; --accent:#7fb39a; --accent-soft:#273127; --accent-ink:#0e130f;
+    --warn:#e0935f; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Iowan Old Style","Georgia",serif;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px);
+    z-index:10; background:var(--bg);
+  }
+  .sans{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+
+  .topbar{
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:5;
+    background:var(--bg); border-bottom:1px solid var(--line);
+    padding:14px 18px 10px;
+  }
+  .topbar .row{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+  .brand{ font-size:15px; letter-spacing:.01em; color:var(--ink-soft); font-family:inherit;}
+  .brand b{ color:var(--ink); }
+  .step-label{ font-size:13px; color:var(--ink-soft); font-family:var(--sans); white-space:nowrap; }
+  .progress-track{ height:3px; background:var(--line); border-radius:3px; margin-top:10px; overflow:hidden;}
+  .progress-fill{ height:100%; background:var(--accent); border-radius:3px; transition:width .35s ease; width:0%; }
+
+  main{ max-width:640px; margin:0 auto; padding:28px 18px 140px; }
+
+  .section-head{ margin-bottom:22px; }
+  .section-head .num{ font-family:var(--sans); font-size:13px; color:var(--accent); font-weight:600; }
+  .section-head h1{ font-size:26px; line-height:1.25; margin:6px 0 8px; font-weight:600; }
+  .section-head p{ margin:0; color:var(--ink-soft); font-size:15px; line-height:1.5; }
+
+  .q{ margin-bottom:30px; }
+  .q .prompt{ font-size:17px; line-height:1.45; margin:0 0 4px; font-weight:600; }
+  .q .help{ font-size:13.5px; color:var(--ink-soft); margin:0 0 10px; line-height:1.45; font-family:var(--sans); }
+
+  textarea, input[type=text]{
+    width:100%; border:1px solid var(--line); border-radius:var(--radius);
+    background:var(--surface); color:var(--ink); padding:11px 13px;
+    font-family:var(--sans); font-size:15.5px; line-height:1.5;
+    resize:vertical;
+  }
+  textarea{ min-height:70px; }
+  textarea:focus, input[type=text]:focus{
+    outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent);
+  }
+
+  .opts{ display:flex; flex-direction:column; gap:8px; }
+  .opt{
+    display:flex; align-items:flex-start; gap:10px;
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:10px 12px; cursor:pointer; background:var(--surface);
+    font-family:var(--sans); font-size:15px; line-height:1.4;
+  }
+  .opt:has(input:checked){ border-color:var(--accent); background:var(--accent-soft); }
+  .opt input{ margin-top:3px; width:17px; height:17px; accent-color:var(--accent); flex-shrink:0; }
+  .opt .other-input{ margin-top:8px; width:100%; }
+
+  .group{ display:flex; flex-direction:column; gap:12px; }
+  .group .sub{ }
+  .group .sub label{ display:block; font-family:var(--sans); font-size:13.5px; color:var(--ink-soft); margin-bottom:5px; }
+
+  .nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:6;
+    background:var(--bg); border-top:1px solid var(--line);
+    padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px));
+  }
+  .nav-inner{ max-width:640px; margin:0 auto; display:flex; gap:10px; align-items:center; }
+  button{ font-family:var(--sans); cursor:pointer; border:none; }
+  .btn{
+    padding:13px 18px; border-radius:999px; font-size:15px; font-weight:600;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .btn-primary{ background:var(--accent); color:var(--accent-ink); flex:1; }
+  .btn-ghost{ background:transparent; color:var(--ink); border:1px solid var(--line) !important; padding:13px 16px; }
+  .btn-ghost:disabled{ opacity:.35; }
+  .autosave{ font-family:var(--sans); font-size:12px; color:var(--ink-soft); text-align:center; margin-top:8px; }
+
+  .intro, .done{ max-width:640px; margin:0 auto; padding:48px 20px 60px; }
+  .intro h1, .done h1{ font-size:30px; line-height:1.2; margin:0 0 14px; font-weight:600; }
+  .intro p, .done p{ font-size:16px; line-height:1.6; color:var(--ink-soft); margin:0 0 14px; }
+  .intro .meta{ font-family:var(--sans); font-size:13px; color:var(--accent); text-transform:none; margin-bottom:10px; }
+  .start-btn{ margin-top:18px; }
+
+  .send-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:20px; margin-top:22px;
+  }
+  .send-card h2{ font-size:18px; margin:0 0 6px; }
+  .send-card p{ font-size:14px; color:var(--ink-soft); margin:0 0 16px; font-family:var(--sans); line-height:1.5; }
+  .send-row{ display:flex; flex-direction:column; gap:10px; }
+  .send-btn{
+    width:100%; padding:14px; border-radius:10px; font-size:15px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .send-btn.whats{ background:#25D366; color:#06220f; }
+  .send-btn.secondary{ background:var(--accent-soft); color:var(--ink); }
+  .status-ping{ font-family:var(--sans); font-size:12.5px; color:var(--ink-soft); margin-top:10px; text-align:center; }
+
+  .admin-link{
+    font-family:var(--sans); font-size:12px; color:var(--ink-soft); text-align:center;
+    margin-top:36px; opacity:.6;
+  }
+  .admin-link button{ background:none; color:inherit; text-decoration:underline; font:inherit; padding:4px; }
+
+  .admin{ max-width:760px; margin:0 auto; padding:40px 18px 60px; }
+  .admin h1{ font-size:24px; margin-bottom:4px; }
+  .admin .sub{ color:var(--ink-soft); font-size:14px; margin-bottom:24px; font-family:var(--sans); }
+  .resp-card{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .resp-card .when{ font-family:var(--sans); font-size:12px; color:var(--accent); margin-bottom:8px; }
+  .resp-card pre{ white-space:pre-wrap; font-family:var(--sans); font-size:13px; line-height:1.6; margin:0; }
+  .back-link{ font-family:var(--sans); font-size:13px; color:var(--accent); background:none; border:none; cursor:pointer; padding:0; margin-bottom:18px; text-decoration:underline; }
+
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div id="intro" class="intro">
+  <div class="meta sans">PROSPECTA IA 360° · SECRETÁRIA COMERCIAL COM IA</div>
+  <h1>Briefing de desenvolvimento</h1>
+  <p>Este questionário entende sua operação comercial, seus empreendimentos, seu processo de atendimento e suas regras de negócio. As respostas serão usadas para configurar uma assistente de IA capaz de atender compradores, apresentar seus imóveis, qualificar oportunidades e direcionar cada lead para o próximo passo comercial.</p>
+  <p>Responda com o máximo de detalhe possível. Quando uma definição ainda não existir, escreva "a definir" — sem problema. Não precisa entender nada técnico de IA.</p>
+  <p class="sans" style="font-size:13px; color:var(--ink-soft);">109 perguntas em 15 seções · suas respostas ficam salvas neste aparelho enquanto você preenche, então pode fechar e voltar depois.</p>
+  <button class="btn btn-primary start-btn sans" onclick="startForm()">Começar</button>
+</div>
+
+<div id="formwrap" hidden>
+  <div class="topbar">
+    <div class="row">
+      <div class="brand sans">Briefing — <b id="sectionNumLabel"></b></div>
+      <div class="step-label" id="stepLabel"></div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+  <main id="main"></main>
+  <div class="nav">
+    <div class="nav-inner">
+      <button class="btn btn-ghost" id="prevBtn" onclick="prevSection()">Voltar</button>
+      <button class="btn btn-primary" id="nextBtn" onclick="nextSection()">Continuar</button>
+    </div>
+    <div class="autosave" id="autosaveNote">Respostas salvas neste aparelho automaticamente</div>
+  </div>
+</div>
+
+<div id="done" class="done" hidden>
+  <h1>Pronto.</h1>
+  <p>Revise rapidamente se quiser (volte pelo botão abaixo) ou envie direto. O ideal é mandar pelo WhatsApp — é o canal que o Erick já usa pra acompanhar o projeto.</p>
+  <button class="btn btn-ghost sans" onclick="goToSection(0)" style="margin-bottom:6px;">← Revisar respostas</button>
+
+  <div class="send-card">
+    <h2>Enviar respostas</h2>
+    <p>O botão abaixo abre o WhatsApp com todas as suas respostas prontas — você só escolhe o contato e manda. Se preferir, também dá pra baixar ou copiar tudo.</p>
+    <div class="send-row">
+      <button class="send-btn whats" onclick="sendWhatsApp()">Enviar por WhatsApp</button>
+      <button class="send-btn secondary" onclick="downloadTxt()">Baixar respostas (.txt)</button>
+      <button class="send-btn secondary" onclick="copyAll()">Copiar tudo</button>
+    </div>
+    <div class="status-ping" id="savePing"></div>
+  </div>
+
+  <div class="admin-link">
+    <button onclick="tryOpenAdmin()">painel do consultor</button>
+  </div>
+</div>
+
+<div id="admin" class="admin" hidden>
+  <button class="back-link" onclick="closeAdmin()">← voltar ao formulário</button>
+  <h1>Respostas recebidas</h1>
+  <div class="sub">Visível só pra você (dono deste link).</div>
+  <div id="adminList"></div>
+</div>
+
+<script>
+/* ---------- Data model ---------- */
+// q(id, type, prompt, extra)
+// type: 'text' (textarea), 'short' (single line), 'multi' (checkboxes incl. "Outros"), 'group' (labeled sub-fields)
+function q(id, type, prompt, opts){ return Object.assign({id,type,prompt}, opts||{}); }
+
+const SECTIONS = [
+{
+  title:"Sobre sua operação comercial",
+  sub:"Perfil profissional e estrutura comercial.",
+  items:[
+    q(1,'text','Como você se apresenta profissionalmente aos clientes?',{help:'Nome, cargo, imobiliária ou empresa, especialidade e outras informações relevantes.'}),
+    q(2,'short','Há quanto tempo você atua no mercado imobiliário?'),
+    q(3,'text','Em quais regiões você atua comercialmente?',{help:'Informe cidades, bairros e regiões prioritárias.'}),
+    q(4,'multi','Qual é o seu principal foco de atuação?',{options:['Imóveis residenciais novos','Imóveis residenciais usados','Lançamentos imobiliários','Imóveis de alto padrão','Imóveis comerciais','Investimento imobiliário','Lotes e terrenos'], other:true}),
+    q(5,'text','Qual é o seu principal diferencial comercial em relação a outros corretores?',{help:'O que você gostaria que o cliente percebesse ao conversar com você?'}),
+    q(6,'multi','Você trabalha sozinho ou conta com uma equipe?',{options:['Trabalho sozinho','Tenho assistentes','Tenho outros corretores','Tenho uma equipe comercial estruturada']}),
+    q('6b','text','Se houver equipe, informe os integrantes e suas funções',{optional:true}),
+    q(7,'text','Quem deverá receber os leads quando a IA identificar uma oportunidade qualificada?',{help:'Informe o responsável e os critérios de distribuição, se houver.'}),
+    q(8,'text','Qual é o seu horário habitual de atendimento?',{help:'Informe os dias da semana e os horários em que costuma estar disponível.'}),
+    q(9,'multi','O que normalmente impede você de responder aos leads imediatamente?',{options:['Visitas aos empreendimentos','Reuniões','Negociações','Atendimento a outros clientes','Fora do horário comercial','Volume elevado de mensagens'], other:true}),
+    q(10,'text','Qual é o principal problema que você deseja resolver com a assistente de IA?',{help:'Descreva os problemas mais importantes na operação atual.'}),
+  ]
+},
+{
+  title:"Empreendimentos e imóveis comercializados",
+  sub:"Fundamental para que a assistente não invente características, condições ou preços.",
+  items:[
+    q(11,'text','Quais empreendimentos ou imóveis você está comercializando atualmente?',{help:'Para cada um: nome, incorporadora/construtora, endereço, tipo, faixa de preço, metragens e configurações, diferenciais, previsão de entrega, link do material comercial.'}),
+    q(12,'text','Você trabalha com empreendimentos próprios, de uma imobiliária ou de diferentes incorporadoras?'),
+    q(13,'text','Quais empreendimentos são prioritários para você vender neste momento? Por quê?'),
+    q(14,'text','Existem imóveis ou empreendimentos que a assistente não deve oferecer, ou que devem ter prioridade menor?'),
+    q(15,'multi','Quais informações a assistente poderá compartilhar diretamente com os interessados?',{options:['Localização e endereço','Plantas e metragens','Fotos e vídeos','Áreas de lazer e infraestrutura','Diferenciais do empreendimento','Preços e tabelas comerciais','Condições de pagamento','Simulações de financiamento','Disponibilidade de unidades','Previsão de entrega','Materiais institucionais'], other:true}),
+    q(16,'text','Existem informações que só podem ser apresentadas após uma conversa com você?',{help:'Exemplos: condições especiais, descontos, negociação de valores, disponibilidade sujeita à confirmação.'}),
+    q(17,'text','Quais documentos, links, catálogos, tabelas de preços, apresentações ou FAQs já existem e podem alimentar a IA?',{help:'Liste os materiais e, se possível, compartilhe os links ou arquivos.'}),
+    q(18,'text','Com que frequência preços, unidades disponíveis e condições comerciais mudam? Quem vai fornecer as atualizações?'),
+  ]
+},
+{
+  title:"Origem dos leads e primeiro atendimento",
+  sub:"Canais de aquisição e a primeira mensagem.",
+  items:[
+    q(19,'multi','De onde vêm seus potenciais compradores atualmente?',{options:['Anúncios no Instagram ou Facebook','Anúncios no Google','Portais imobiliários','Site ou landing pages','WhatsApp','Indicações','Redes sociais orgânicas','Base de contatos antiga'], other:true}),
+    q(20,'text','Como esses contatos chegam até você?',{help:'Explique o caminho desde o primeiro interesse até o início da conversa.'}),
+    q(21,'text','Todos os leads recebem o mesmo tipo de atendimento, ou você usa abordagens diferentes conforme empreendimento, campanha ou origem?'),
+    q(22,'text','Quais informações sobre a origem do lead estarão disponíveis para a assistente?',{help:'Exemplos: anúncio clicado, empreendimento de interesse, formulário preenchido, campanha de origem.'}),
+    q(23,'text','Como você costuma iniciar uma conversa com um novo interessado?',{help:'Se possível, compartilhe exemplos reais de mensagens que utiliza atualmente.'}),
+    q(24,'multi','Como você gostaria que a assistente se apresentasse?',{options:['Como uma assistente virtual que trabalha com você','Como a assistente comercial da sua operação'], other:true, otherLabel:'De outra forma — descreva:'}),
+    q(25,'multi','Qual deve ser a principal função da primeira conversa?',{options:['Entender qual imóvel despertou o interesse','Identificar as necessidades do comprador','Apresentar informações iniciais do empreendimento','Identificar se o cliente está pronto para comprar','Conduzir para o agendamento de uma visita'], other:true, otherLabel:'Outro objetivo:'}),
+    q(26,'text','Há alguma mensagem, informação ou abordagem que você NÃO gostaria que a assistente usasse no primeiro contato?'),
+  ]
+},
+{
+  title:"Perfil do comprador e qualificação",
+  sub:"O que a IA precisa descobrir para te entregar oportunidades com contexto.",
+  items:[
+    q(27,'text','Quem é o perfil de comprador que você mais deseja atrair?',{help:'Finalidade da compra, faixa de renda (quando pertinente), região, momento de vida, capacidade de investimento.'}),
+    q(28,'text','Quais perfis de clientes costumam gerar as melhores oportunidades para você?'),
+    q(29,'text','Existem perfis de compradores ou tipos de demanda que você não atende?'),
+    q(30,'multi','Quais informações são indispensáveis para entender a necessidade de um potencial comprador?',{options:['Empreendimento ou imóvel de interesse','Região desejada','Tipo de imóvel','Quantidade de quartos','Metragem ou tamanho desejado','Faixa de preço ou orçamento disponível','Finalidade da compra: moradia, investimento ou outra','Forma de pagamento pretendida','Necessidade de financiamento','Prazo previsto para a compra','Imóvel atual para venda ou permuta','Necessidade de mudança'], other:true}),
+    q(31,'text','Quais dessas informações precisam ser obtidas antes de considerar um lead qualificado?'),
+    q(32,'text','Existe uma ordem preferencial para fazer essas perguntas?',{help:'Ex.: entender o imóvel de interesse, depois as necessidades, só então orçamento e prazo.'}),
+    q(33,'multi','Como você prefere que a assistente pergunte sobre orçamento e capacidade de compra?',{options:['Perguntar diretamente sobre a faixa de investimento','Apresentar faixas de preço para o cliente escolher','Entender primeiro o imóvel desejado e abordar orçamento depois'], other:true, otherLabel:'Outra abordagem — detalhes:'}),
+    q(34,'text','Como a assistente deve agir quando o cliente ainda não sabe exatamente o que procura?'),
+    q(35,'text','Como identificar um comprador com alta intenção de avançar?',{help:'Quais sinais indicam que vale a pena priorizar o atendimento humano?'}),
+    q(36,'group','Como classificar os leads conforme a intenção de compra?',{sub:[
+      {key:'alta',label:'Alta prioridade'},
+      {key:'media',label:'Prioridade intermediária'},
+      {key:'baixa',label:'Baixa prioridade ou longo prazo'},
+      {key:'sem',label:'Sem aderência ao portfólio'},
+    ]}),
+    q(37,'text','Quais respostas ou comportamentos devem fazer a assistente interromper a qualificação e encaminhar o contato para você?'),
+  ]
+},
+{
+  title:"Comportamento, personalidade e linguagem da IA",
+  sub:"Personalidade e condução da conversa.",
+  items:[
+    q(38,'short','Qual nome a assistente deverá utilizar?'),
+    q(39,'multi','Como você gostaria que ela se comunicasse?',{options:['Profissional e objetiva','Simpática e acolhedora','Consultiva e orientadora','Sofisticada e elegante','Persuasiva e comercial','Informal e próxima'], other:true}),
+    q(40,'multi','Qual nível de informalidade você considera adequado?',{options:['Formal, sem gírias','Natural e profissional','Informal, com linguagem cotidiana','Próxima e descontraída, sem perder a credibilidade']}),
+    q(41,'multi','A assistente deve utilizar emojis?',{options:['Não','Sim, com moderação','Sim, de forma mais frequente']}),
+    q(42,'text','Existem expressões, palavras ou estilos de comunicação que você usa frequentemente e gostaria que fossem incorporados?'),
+    q(43,'text','Existem abordagens que você considera inadequadas para sua imagem profissional?',{help:'Ex.: insistência excessiva, promessas de valorização, pressão para fechar negócio, mensagens genéricas.'}),
+    q(44,'multi','Como a assistente deve equilibrar o atendimento consultivo e a condução comercial?',{options:['Priorizar o esclarecimento de dúvidas e avançar gradualmente','Buscar o agendamento assim que identificar interesse','Adaptar a abordagem ao perfil e ao momento do cliente'], other:true, otherLabel:'Outra orientação:'}),
+    q(45,'text','Quando o cliente fizer várias perguntas de uma vez, como você prefere que a assistente responda?'),
+    q(46,'multi','Como a assistente deve agir diante de objeções? Marque as situações que deseja contemplar.',{options:['Preço acima do esperado','Dúvidas sobre financiamento','Necessidade de conversar com cônjuge ou familiares','Comparação com outros empreendimentos','Insegurança sobre a compra','Cliente sem urgência para decidir','Dúvidas sobre a construtora ou incorporadora'], other:true}),
+    q('46b','text','Para as principais objeções, compartilhe respostas ou orientações comerciais que você utiliza',{optional:true}),
+  ]
+},
+{
+  title:"Dúvidas frequentes e limites de atuação",
+  sub:"",
+  items:[
+    q(47,'text','Quais são as perguntas mais frequentes que você recebe dos compradores?',{help:'Liste as perguntas e, se possível, as respostas que considera corretas.'}),
+    q(48,'text','Quais informações a assistente nunca deve afirmar sem confirmação?',{help:'Ex.: disponibilidade de unidade, desconto autorizado, condições especiais, prazo de entrega, valorização futura.'}),
+    q(49,'multi','Como ela deve responder quando não souber uma informação?',{options:['Informar que precisa confirmar e encaminhar a dúvida','Registrar a pergunta e avisar que você dará continuidade'], other:true, otherLabel:'Outra orientação:'}),
+    q(50,'text','Quais assuntos devem ser encaminhados obrigatoriamente para você ou para um especialista?',{help:'Ex.: análise financeira individual, negociação de descontos, questões jurídicas, documentação, condições excepcionais.'}),
+    q(51,'multi','A assistente poderá realizar alguma negociação comercial?',{options:['Não. Apenas informar as condições previamente aprovadas','Poderá apresentar condições dentro de limites definidos','Poderá negociar mediante regras específicas']}),
+    q('51b','text','Se houver limites, descreva quais são e o que exige sua autorização',{optional:true}),
+    q(52,'text','Há restrições legais, contratuais ou orientações das incorporadoras que precisam ser respeitadas nas conversas?'),
+  ]
+},
+{
+  title:"Transferência para atendimento humano",
+  sub:"A transferência deve acontecer sem perder o contexto, sem o cliente repetir o que já disse.",
+  items:[
+    q(53,'multi','Em quais situações a IA deverá encaminhar a conversa para você?',{options:['Lead qualificado e interessado em avançar','Solicitação de visita','Pedido de negociação','Dúvidas que a IA não consegue resolver','Reclamações ou insatisfação','Solicitação explícita para falar com uma pessoa','Situações delicadas ou excepcionais'], other:true}),
+    q(54,'text','Existe uma prioridade para o atendimento dos leads encaminhados?',{help:'Descreva os critérios e o prazo ideal para seu retorno.'}),
+    q(55,'multi','Como você deseja receber os avisos de novos leads qualificados?',{options:['Pelo próprio WhatsApp','Pelo CRM','Por e-mail'], other:true, otherLabel:'Outro canal:'}),
+    q(56,'multi','Quais informações você precisa receber junto com cada encaminhamento?',{options:['Nome e contato','Empreendimento de interesse','Orçamento informado','Região e características desejadas','Finalidade da compra','Prazo para comprar','Principais dúvidas e objeções','Histórico da conversa','Motivo do encaminhamento','Próxima ação recomendada'], other:true}),
+    q(57,'text','O que a assistente deverá fazer quando você estiver indisponível?'),
+    q(58,'multi','Depois que você assumir o atendimento, a IA deverá continuar participando da conversa?',{options:['Não, deve aguardar nova orientação','Sim, poderá auxiliar conforme regras definidas','A definir']}),
+    q('58b','text','Detalhes',{optional:true}),
+  ]
+},
+{
+  title:"Visitas, reuniões e agenda",
+  sub:"A proposta prevê priorizar visitas ao estande, depois reuniões no escritório e, quando necessário, reuniões online.",
+  items:[
+    q(59,'multi','Quais modalidades de atendimento você oferece atualmente?',{options:['Visitas aos estandes dos empreendimentos','Visitas a imóveis','Reuniões presenciais no escritório','Reuniões online'], other:true}),
+    q(60,'text','Qual é a localização de cada local de atendimento?',{help:'Endereços, pontos de referência e orientações para chegada.'}),
+    q(61,'text','Quais são os dias e horários disponíveis para visitas e reuniões?',{help:'Informe diferenças entre empreendimentos e modalidades, se houver.'}),
+    q(62,'short','Qual é a duração habitual de cada tipo de compromisso?'),
+    q(63,'text','Com quanto tempo de antecedência um compromisso pode ser agendado? Existe intervalo mínimo ou máximo?'),
+    q(64,'multi','A assistente poderá agendar diretamente na agenda integrada?',{options:['Sim, conforme os horários disponíveis e as regras definidas','Não, deverá solicitar sua confirmação antes de agendar','Depende do tipo de compromisso']}),
+    q('64b','text','Detalhes',{optional:true}),
+    q(65,'text','Quais informações precisam ser coletadas antes de confirmar uma visita ou reunião?'),
+    q(66,'text','Como você gostaria de tratar confirmações, cancelamentos e remarcações?',{help:'Prazos, regras e situações em que você precisa ser avisado.'}),
+    q(67,'short','Com quanto tempo de antecedência os lembretes devem ser enviados?'),
+    q(68,'text','O que deverá acontecer se o cliente não comparecer?'),
+  ]
+},
+{
+  title:"CRM e organização dos leads",
+  sub:"",
+  items:[
+    q(69,'multi','Você utiliza algum CRM ou sistema de gestão comercial atualmente?',{options:['Não utilizo CRM','Utilizo um CRM pessoal','Utilizo o CRM da imobiliária','Utilizo outro sistema']}),
+    q('69b','text','Qual ferramenta utiliza e como funciona a operação atual?',{optional:true}),
+    q(70,'text','Quais informações devem ficar registradas para cada lead?',{help:'Além da qualificação: origem, empreendimento, histórico, etapa comercial, próximos passos.'}),
+    q(71,'multi','Como você gostaria de organizar o funil comercial?',{help:'Proposta: Novo lead → Em atendimento → Em qualificação → Qualificado → Visita/reunião agendada → Reunião realizada/negociação → Venda concluída ou oportunidade perdida → Pós-venda.',options:['A estrutura proposta atende à minha operação','Preciso alterar ou acrescentar etapas']}),
+    q('71b','text','Se precisar de ajustes, descreva',{optional:true}),
+    q(72,'text','Quais mudanças de etapa devem acontecer automaticamente?',{help:'Ex.: lead qualificado após critérios preenchidos, visita agendada após confirmação, oportunidade perdida após decisão registrada.'}),
+    q(73,'text','Quais informações você precisa visualizar diariamente no CRM?'),
+    q(74,'multi','Você precisa registrar o motivo pelo qual um lead não avançou ou perdeu o interesse?',{options:['Sim','Não']}),
+    q('74b','text','Se sim, quais motivos devem ser registrados?',{optional:true}),
+  ]
+},
+{
+  title:"Follow-up e recuperação de oportunidades",
+  sub:"",
+  items:[
+    q(75,'multi','Em quais situações a assistente deverá retomar o contato com o lead?',{options:['O lead parou de responder','O lead demonstrou interesse, mas não agendou uma visita','O lead agendou, mas não confirmou presença','O lead visitou o empreendimento, mas não avançou','O lead deseja comprar no futuro','O lead pediu para entrar em contato posteriormente','O lead demonstrou interesse em outro empreendimento'], other:true}),
+    q(76,'text','Qual frequência de contato você considera adequada para cada situação?',{help:'Quando fazer o primeiro retorno, quantas tentativas, quando interromper a sequência.'}),
+    q(77,'multi','Qual deve ser o objetivo principal dos follow-ups?',{options:['Retomar a conversa','Esclarecer dúvidas pendentes','Identificar se o interesse continua ativo','Agendar uma visita ou reunião','Apresentar alternativas compatíveis com o perfil','Atualizar o momento de compra'], other:true}),
+    q(78,'text','Como a assistente deve agir quando o cliente informar que pretende comprar somente daqui a alguns meses?'),
+    q(79,'text','O que deve acontecer quando o cliente pedir para não receber mais mensagens?'),
+    q(80,'text','Existem mensagens de follow-up que você já utiliza e gostaria de manter ou adaptar?',{optional:true}),
+    q(81,'text','Quais situações devem interromper automaticamente uma cadência de follow-up?',{help:'Ex.: resposta do cliente, agendamento, venda concluída, perda da oportunidade, pedido de interrupção.'}),
+  ]
+},
+{
+  title:"Pós-venda e relacionamento",
+  sub:"",
+  items:[
+    q(82,'multi','Após a conclusão de uma venda, você deseja manter algum fluxo automatizado de relacionamento?',{options:['Sim','Não','Ainda preciso definir']}),
+    q(83,'multi','Quais seriam os objetivos desse relacionamento?',{options:['Acompanhar a experiência do cliente','Solicitar indicações','Identificar oportunidades de novas compras','Manter relacionamento para futuras negociações','Compartilhar informações úteis'], other:true}),
+    q(84,'text','Em quais momentos os contatos de pós-venda devem acontecer?'),
+    q(85,'text','Existem assuntos que devem ser tratados exclusivamente por você ou pela equipe após a venda?'),
+  ]
+},
+{
+  title:"Ferramentas, integrações e acessos",
+  sub:"Não compartilhe senhas neste formulário.",
+  items:[
+    q(86,'text','Qual número de WhatsApp deverá ser utilizado pela assistente?',{help:'Informe se é exclusivo, pessoal ou compartilhado com a operação atual.'}),
+    q(87,'multi','Esse número já utiliza alguma integração com sistemas de atendimento?',{options:['Não','Sim, utiliza a API Oficial do WhatsApp','Sim, utiliza outra integração','Não sei informar']}),
+    q('87b','text','Detalhes',{optional:true}),
+    q(88,'multi','Você possui uma agenda digital?',{options:['Google Agenda','Outlook','Não utilizo agenda digital'], other:true, otherLabel:'Outra ferramenta:'}),
+    q(89,'text','Qual CRM você pretende utilizar na nova operação?',{help:'Se ainda não houver escolha, sinalize para avaliarmos as opções.'}),
+    q(90,'text','Quais ferramentas já fazem parte da sua operação comercial?',{help:'Sistemas para anúncios, formulários, site, atendimento, gestão de clientes etc.'}),
+    q(91,'text','Você possui site, landing pages, catálogos digitais ou páginas dos empreendimentos?',{help:'Compartilhe os links disponíveis.'}),
+    q(92,'text','Existe alguém responsável por atualizar dados dos empreendimentos, preços, disponibilidade e materiais comerciais?'),
+    q(93,'text','Quem poderá fornecer os acessos necessários às ferramentas escolhidas?',{help:'Os acessos serão compartilhados depois, por um meio seguro.'}),
+  ]
+},
+{
+  title:"Privacidade e regras operacionais",
+  sub:"",
+  items:[
+    q(94,'text','Como os contatos chegam até você e como os dados pessoais são coletados atualmente?',{help:'Formulários, anúncios, indicações, portais ou outros canais.'}),
+    q(95,'multi','Existe alguma política de privacidade ou orientação interna sobre o uso dos dados dos clientes?',{options:['Sim','Não','Não sei informar']}),
+    q('95b','text','Se sim, compartilhe o documento ou link',{optional:true}),
+    q(96,'text','Há alguma restrição sobre quais dados podem ser solicitados, registrados ou compartilhados pela assistente?'),
+    q(97,'text','Existem regras específicas para contatos que já compraram, estão em negociação ou pediram para não receber mensagens?'),
+    q(98,'text','Há alguma outra regra comercial, operacional ou de privacidade que a assistente deverá respeitar?'),
+  ]
+},
+{
+  title:"Resultados esperados e critérios de sucesso",
+  sub:"",
+  items:[
+    q(99,'multi','Qual resultado você mais espera obter com a implantação da assistente? Escolha até três.',{options:['Reduzir o tempo de primeira resposta','Atender leads mesmo quando estiver indisponível','Melhorar a qualificação dos compradores','Aumentar o número de visitas agendadas','Aumentar o comparecimento às visitas','Reduzir a perda de oportunidades por falta de acompanhamento','Organizar a gestão comercial','Recuperar leads antigos','Melhorar a experiência do cliente','Aumentar as vendas'], other:true}),
+    q(100,'text','Você acompanha atualmente algum indicador comercial?',{help:'Ex.: quantidade de leads, tempo de resposta, taxa de agendamento, comparecimento, propostas, vendas.'}),
+    q(101,'short','Qual é o volume médio de leads recebidos por mês?'),
+    q(102,'text','Quantos desses leads costumam avançar para visitas ou reuniões?',{help:'Se não souber, informe uma estimativa.'}),
+    q(103,'text','Existe uma meta comercial que você deseja alcançar com a ajuda da assistente?'),
+    q(104,'text','Como você avaliará se a assistente está funcionando bem após a implantação?',{help:'Descreva os resultados práticos que espera observar.'}),
+  ]
+},
+{
+  title:"Prioridades e observações finais",
+  sub:"",
+  items:[
+    q(105,'group','Quais são as três funcionalidades mais importantes para colocar em funcionamento primeiro?',{sub:[
+      {key:'p1',label:'1ª prioridade'},{key:'p2',label:'2ª prioridade'},{key:'p3',label:'3ª prioridade'},
+    ]}),
+    q(106,'text','Existe alguma funcionalidade da proposta que não é necessária neste momento?'),
+    q(107,'text','Há alguma particularidade da sua operação que não foi contemplada neste questionário?'),
+    q(108,'text','Existe algum atendimento real que represente um bom exemplo de como você gostaria que a assistente conduzisse uma conversa?',{help:'Compartilhe uma conversa anonimizada ou descreva situação, abordagem e resultado esperado.'}),
+    q(109,'multi','Há algum outro material que possa ajudar a entender sua operação comercial?',{options:['Scripts de atendimento','Conversas de WhatsApp anonimizadas','Apresentações dos empreendimentos','Tabelas comerciais','Perguntas frequentes','Materiais de treinamento','Fluxograma comercial'], other:true}),
+    q('109b','text','Links ou observações',{optional:true}),
+  ]
+},
+];
+
+/* ---------- State ---------- */
+const STORAGE_KEY = 'alison_briefing_v1';
+let state = { answers:{}, section:0 };
+let currentSection = 0;
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) state = JSON.parse(raw);
+  }catch(e){}
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+function startForm(){
+  document.getElementById('intro').hidden = true;
+  document.getElementById('formwrap').hidden = false;
+  renderSection(state.section || 0);
+}
+
+function goToSection(i){
+  document.getElementById('done').hidden = true;
+  document.getElementById('admin').hidden = true;
+  document.getElementById('formwrap').hidden = false;
+  renderSection(i);
+}
+
+function renderSection(i){
+  currentSection = i;
+  state.section = i;
+  const sec = SECTIONS[i];
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  head.innerHTML = `<div class="num sans">SEÇÃO ${i+1} DE ${SECTIONS.length}</div>
+    <h1>${sec.title}</h1>
+    ${sec.sub ? `<p>${sec.sub}</p>` : ''}`;
+  main.appendChild(head);
+
+  sec.items.forEach(item => {
+    main.appendChild(renderItem(item));
+  });
+
+  document.getElementById('sectionNumLabel').textContent = sec.title;
+  document.getElementById('stepLabel').textContent = `${i+1} / ${SECTIONS.length}`;
+  document.getElementById('progressFill').style.width = (((i+1)/SECTIONS.length)*100) + '%';
+  document.getElementById('prevBtn').disabled = (i===0);
+  document.getElementById('nextBtn').textContent = (i === SECTIONS.length-1) ? 'Finalizar' : 'Continuar';
+
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+function renderItem(item){
+  const wrap = document.createElement('div');
+  wrap.className = 'q';
+  const prompt = document.createElement('p');
+  prompt.className = 'prompt';
+  prompt.textContent = item.prompt;
+  wrap.appendChild(prompt);
+  if(item.help){
+    const help = document.createElement('p');
+    help.className = 'help';
+    help.textContent = item.help;
+    wrap.appendChild(help);
+  }
+
+  if(item.type === 'text' || item.type === 'short'){
+    const el = item.type === 'short' ? document.createElement('input') : document.createElement('textarea');
+    if(item.type === 'short') el.type = 'text';
+    el.value = state.answers[item.id] || '';
+    el.placeholder = item.optional ? 'Opcional' : 'Resposta';
+    el.addEventListener('input', () => { state.answers[item.id] = el.value; saveState(); });
+    wrap.appendChild(el);
+  }
+
+  if(item.type === 'multi'){
+    const box = document.createElement('div');
+    box.className = 'opts';
+    const saved = state.answers[item.id] || { picked: [], other:'' };
+    (item.options||[]).forEach(opt => {
+      const label = document.createElement('label');
+      label.className = 'opt';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = saved.picked && saved.picked.includes(opt);
+      cb.addEventListener('change', () => {
+        const cur = state.answers[item.id] || { picked:[], other:'' };
+        cur.picked = cur.picked || [];
+        if(cb.checked){ if(!cur.picked.includes(opt)) cur.picked.push(opt); }
+        else { cur.picked = cur.picked.filter(x => x !== opt); }
+        state.answers[item.id] = cur;
+        saveState();
+      });
+      const span = document.createElement('span');
+      span.textContent = opt;
+      label.appendChild(cb);
+      label.appendChild(span);
+      box.appendChild(label);
+    });
+    if(item.other){
+      const label = document.createElement('label');
+      label.className = 'opt';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!(saved.otherChecked);
+      const otherInput = document.createElement('input');
+      otherInput.type = 'text';
+      otherInput.className = 'other-input';
+      otherInput.placeholder = 'Especifique';
+      otherInput.value = saved.other || '';
+      otherInput.hidden = !cb.checked;
+      cb.addEventListener('change', () => {
+        const cur = state.answers[item.id] || { picked:[], other:'' };
+        cur.otherChecked = cb.checked;
+        otherInput.hidden = !cb.checked;
+        state.answers[item.id] = cur;
+        saveState();
+      });
+      otherInput.addEventListener('input', () => {
+        const cur = state.answers[item.id] || { picked:[], other:'' };
+        cur.other = otherInput.value;
+        state.answers[item.id] = cur;
+        saveState();
+      });
+      const span = document.createElement('span');
+      span.style.flex = '1';
+      const spanLabel = document.createElement('span');
+      spanLabel.textContent = item.otherLabel || 'Outros:';
+      const col = document.createElement('div');
+      col.style.flex = '1';
+      col.appendChild(spanLabel);
+      col.appendChild(otherInput);
+      label.appendChild(cb);
+      label.appendChild(col);
+      box.appendChild(label);
+    }
+    wrap.appendChild(box);
+  }
+
+  if(item.type === 'group'){
+    const box = document.createElement('div');
+    box.className = 'group';
+    const saved = state.answers[item.id] || {};
+    item.sub.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'sub';
+      const label = document.createElement('label');
+      label.textContent = s.label;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = saved[s.key] || '';
+      input.addEventListener('input', () => {
+        const cur = state.answers[item.id] || {};
+        cur[s.key] = input.value;
+        state.answers[item.id] = cur;
+        saveState();
+      });
+      row.appendChild(label);
+      row.appendChild(input);
+      box.appendChild(row);
+    });
+    wrap.appendChild(box);
+  }
+
+  return wrap;
+}
+
+function prevSection(){
+  if(currentSection > 0){ renderSection(currentSection - 1); window.scrollTo(0,0); }
+}
+function nextSection(){
+  if(currentSection < SECTIONS.length - 1){
+    renderSection(currentSection + 1);
+  } else {
+    finishForm();
+  }
+  window.scrollTo(0,0);
+}
+
+/* ---------- Finish / export ---------- */
+function buildSummaryText(){
+  let out = [];
+  out.push('BRIEFING — SECRETÁRIA COMERCIAL COM IA');
+  out.push('Responsável: Alison · Projeto: Prospecta IA 360°');
+  out.push('');
+  SECTIONS.forEach((sec, si) => {
+    out.push(`── ${si+1}. ${sec.title.toUpperCase()} ──`);
+    sec.items.forEach(item => {
+      const val = state.answers[item.id];
+      let line = '';
+      if(item.type === 'text' || item.type === 'short'){
+        line = (val || '').trim();
+        if(!line) return;
+        out.push(`${item.prompt}\n${line}`);
+      } else if(item.type === 'multi'){
+        if(!val) return;
+        const picked = (val.picked || []).slice();
+        if(val.otherChecked && val.other) picked.push(val.other);
+        if(picked.length === 0) return;
+        out.push(`${item.prompt}\n${picked.join(', ')}`);
+      } else if(item.type === 'group'){
+        if(!val) return;
+        const parts = item.sub.map(s => val[s.key] ? `${s.label}: ${val[s.key]}` : null).filter(Boolean);
+        if(parts.length === 0) return;
+        out.push(`${item.prompt}\n${parts.join(' | ')}`);
+      }
+      out.push('');
+    });
+  });
+  return out.join('\n');
+}
+
+function finishForm(){
+  document.getElementById('formwrap').hidden = true;
+  document.getElementById('done').hidden = false;
+  attemptSaveToDb();
+}
+
+function sendWhatsApp(){
+  const text = buildSummaryText();
+  const url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
+  window.open(url, '_blank');
+}
+
+function downloadTxt(){
+  const text = buildSummaryText();
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'briefing-alison.txt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function copyAll(){
+  const text = buildSummaryText();
+  try{
+    await navigator.clipboard.writeText(text);
+    const ping = document.getElementById('savePing');
+    ping.textContent = 'Copiado.';
+    setTimeout(() => { if(ping.textContent==='Copiado.') ping.textContent=''; }, 2500);
+  }catch(e){
+    downloadTxt();
+  }
+}
+
+/* ---------- Best-effort shared storage (for the "painel do consultor") ---------- */
+let dbNS = null;
+async function attemptSaveToDb(){
+  const ping = document.getElementById('savePing');
+  try{
+    if(!window.claude) return;
+    dbNS = await window.claude.use('db');
+    if(!dbNS) return;
+    const text = buildSummaryText();
+    const docId = 'resp_' + Date.now();
+    await dbNS.collection('responses').doc(docId).set({
+      text: text,
+      answers: state.answers,
+      submittedAt: new Date().toISOString(),
+    });
+    if(ping) ping.textContent = 'Também ficou salvo no painel do consultor.';
+  }catch(e){
+    // silent — WhatsApp/download/copy already cover delivery
+  }
+}
+
+async function tryOpenAdmin(){
+  try{
+    if(!window.claude) return alert('Painel disponível apenas quando aberto pelo dono do link.');
+    const user = await window.claude.use('user');
+    if(!user || !(await user.isOwner())){
+      alert('Esse painel é visível só pra quem criou o link.');
+      return;
+    }
+    if(!dbNS){
+      dbNS = await window.claude.use('db');
+    }
+    document.getElementById('done').hidden = true;
+    document.getElementById('formwrap').hidden = true;
+    document.getElementById('admin').hidden = false;
+    const list = document.getElementById('adminList');
+    list.innerHTML = '<p class="sans" style="color:var(--ink-soft);">Carregando…</p>';
+    if(!dbNS){
+      list.innerHTML = '<p class="sans" style="color:var(--ink-soft);">Sem conexão com o armazenamento agora.</p>';
+      return;
+    }
+    const res = await dbNS.collection('responses').orderBy('submittedAt', 'desc').limit(20).get();
+    const docs = res && res.docs ? res.docs : [];
+    if(docs.length === 0){
+      list.innerHTML = '<p class="sans" style="color:var(--ink-soft);">Nenhuma resposta recebida ainda.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    docs.forEach(d => {
+      const data = d.data ? d.data() : d;
+      const card = document.createElement('div');
+      card.className = 'resp-card';
+      const when = document.createElement('div');
+      when.className = 'when sans';
+      when.textContent = data.submittedAt || '';
+      const pre = document.createElement('pre');
+      pre.textContent = data.text || '';
+      card.appendChild(when);
+      card.appendChild(pre);
+      list.appendChild(card);
+    });
+  }catch(e){
+    alert('Não deu pra abrir o painel agora.');
+  }
+}
+function closeAdmin(){
+  document.getElementById('admin').hidden = true;
+  document.getElementById('done').hidden = false;
+}
+
+loadState();
+</script>
+</body>
+</html>
