@@ -192,7 +192,7 @@
 
   <div class="send-card">
     <h2>Enviar respostas</h2>
-    <p>O botão abaixo abre o WhatsApp com todas as suas respostas prontas — você só escolhe o contato e manda. Se preferir, também dá pra baixar ou copiar tudo.</p>
+    <p>O botão abaixo abre o WhatsApp direto na conversa com o Erick, com todas as suas respostas prontas — é só conferir e mandar. Se preferir, também dá pra baixar ou copiar tudo.</p>
     <div class="send-row">
       <button class="send-btn whats" onclick="sendWhatsApp()">Enviar por WhatsApp</button>
       <button class="send-btn secondary" onclick="downloadTxt()">Baixar respostas (.txt)</button>
@@ -200,17 +200,6 @@
     </div>
     <div class="status-ping" id="savePing"></div>
   </div>
-
-  <div class="admin-link">
-    <button onclick="tryOpenAdmin()">painel do consultor</button>
-  </div>
-</div>
-
-<div id="admin" class="admin" hidden>
-  <button class="back-link" onclick="closeAdmin()">← voltar ao formulário</button>
-  <h1>Respostas recebidas</h1>
-  <div class="sub">Visível só pra você (dono deste link).</div>
-  <div id="adminList"></div>
 </div>
 
 <script>
@@ -657,12 +646,12 @@ function buildSummaryText(){
 function finishForm(){
   document.getElementById('formwrap').hidden = true;
   document.getElementById('done').hidden = false;
-  attemptSaveToDb();
 }
 
+const WHATSAPP_NUMBER = '554185386136'; // Erick — com DDI 55
 function sendWhatsApp(){
   const text = buildSummaryText();
-  const url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
+  const url = 'https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(text);
   window.open(url, '_blank');
 }
 
@@ -689,76 +678,6 @@ async function copyAll(){
   }catch(e){
     downloadTxt();
   }
-}
-
-/* ---------- Best-effort shared storage (for the "painel do consultor") ---------- */
-let dbNS = null;
-async function attemptSaveToDb(){
-  const ping = document.getElementById('savePing');
-  try{
-    if(!window.claude) return;
-    dbNS = await window.claude.use('db');
-    if(!dbNS) return;
-    const text = buildSummaryText();
-    const docId = 'resp_' + Date.now();
-    await dbNS.collection('responses').doc(docId).set({
-      text: text,
-      answers: state.answers,
-      submittedAt: new Date().toISOString(),
-    });
-    if(ping) ping.textContent = 'Também ficou salvo no painel do consultor.';
-  }catch(e){
-    // silent — WhatsApp/download/copy already cover delivery
-  }
-}
-
-async function tryOpenAdmin(){
-  try{
-    if(!window.claude) return alert('Painel disponível apenas quando aberto pelo dono do link.');
-    const user = await window.claude.use('user');
-    if(!user || !(await user.isOwner())){
-      alert('Esse painel é visível só pra quem criou o link.');
-      return;
-    }
-    if(!dbNS){
-      dbNS = await window.claude.use('db');
-    }
-    document.getElementById('done').hidden = true;
-    document.getElementById('formwrap').hidden = true;
-    document.getElementById('admin').hidden = false;
-    const list = document.getElementById('adminList');
-    list.innerHTML = '<p class="sans" style="color:var(--ink-soft);">Carregando…</p>';
-    if(!dbNS){
-      list.innerHTML = '<p class="sans" style="color:var(--ink-soft);">Sem conexão com o armazenamento agora.</p>';
-      return;
-    }
-    const res = await dbNS.collection('responses').orderBy('submittedAt', 'desc').limit(20).get();
-    const docs = res && res.docs ? res.docs : [];
-    if(docs.length === 0){
-      list.innerHTML = '<p class="sans" style="color:var(--ink-soft);">Nenhuma resposta recebida ainda.</p>';
-      return;
-    }
-    list.innerHTML = '';
-    docs.forEach(d => {
-      const data = d.data ? d.data() : d;
-      const card = document.createElement('div');
-      card.className = 'resp-card';
-      const when = document.createElement('div');
-      when.className = 'when sans';
-      when.textContent = data.submittedAt || '';
-      const pre = document.createElement('pre');
-      pre.textContent = data.text || '';
-      card.appendChild(when);
-      card.appendChild(pre);
-      list.appendChild(card);
-    });
-  }catch(e){
-    alert('Não deu pra abrir o painel agora.');
-  }
-}
-function closeAdmin(){
-  document.getElementById('admin').hidden = true;
-  document.getElementById('done').hidden = false;
 }
 
 loadState();
